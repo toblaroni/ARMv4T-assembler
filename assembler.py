@@ -120,8 +120,111 @@ class Assembler:
                     case ".POOL":
                         pass
 
+                    # === Symbol Directives ===
+                    case ".EQU" | ".SET":
+                        pass
+                    case ".EQUIV":
+                        pass
+                    case ".GLOBAL" | ".GLOBL":
+                        pass
+
+                    # === Constant Definition Directives ===
+                    case ".BYTE":
+                        pass
+                    case ".HWORD" | ".SHORT":
+                        pass
+                    case ".WORD" | ".INT" | ".LONG":
+                        pass
+                    case ".ASCII":
+                        pass
+                    case ".ASCIZ":
+                        pass
+                    case ".STRING":
+                        pass
+                    case ".QUAD":
+                        pass
+                    case ".OCTA":
+                        pass
+                    case ".FLOAT" | ".SINGLE":
+                        pass
+                    case ".DOUBLE":
+                        pass
+                    case ".FILL":
+                        pass
+                    case ".ZERO":
+                        pass
+                    case ".SPACE" | "SKIP":
+                        pass
+
+                    # === Assembly Listing Directives ===
+                    case ".EJECT":
+                        pass
+                    case ".PSIZE":
+                        pass
+                    case ".LIST":
+                        pass
+                    case ".NOLIST":
+                        pass
+                    case ".TITLE":
+                        pass
+                    case ".SBTTL":
+                        pass
+                    
+                    # === Conditional Directives ===
+                    case ".IF":
+                        pass
+                    case ".ELSEIF":
+                        pass
+                    case ".ELSE":
+                        pass
+                    case ".ENDIF":
+                        pass
+                    case ".IFDEF":
+                        pass
+                    case ".IFNDEF" | ".IFNOTDEF":
+                        pass
+                    case ".IFC" | ".IFEQS" | ".IFNES":
+                        pass
+                    case ".IFEQ":
+                        pass
+                    case ".IFNE":
+                        pass
+                    case ".IFGE":
+                        pass
+                    case ".IFLE":
+                        pass
+                    case ".IFLT":
+                        pass
+
+                    # === Debug Directives ===
+                    case ".FUNC" | ".ENDFUNC" | ".STABS":
+                        continue
+
+                    # === Looping Directives ===
+                    case ".REPT":
+                        pass
+                    case ".IRP":
+                        pass
+                    case ".IRPC":
+                        pass
+                    case ".ENDR":
+                        pass
+
+                    # === Macro Directives ===
+                    case ".MACRO":
+                        pass
+                    case ".ENDM":
+                        pass
+                    case ".EXITM":
+                        pass
+                    case ".PURGEM":
+                        pass
+
+
     def _pass_two(self):
         pass
+
+
 
 def main():
     if (len(sys.argv) != 2):
