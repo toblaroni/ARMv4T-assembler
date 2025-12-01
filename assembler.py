@@ -1,6 +1,7 @@
 from enum import Enum
 import os
 import sys
+import argparse
 
 class InstructionMode(Enum):
     ARM = 0
@@ -10,9 +11,25 @@ class Assembler:
     def __init__(self):
 
         self._labels = {}
-        self._INS_SET_MODE = InstructionMode.ARM
+        self._INS_SET_MODE = InstructionMode.ARM    # Default
+        self._source = {}                           # Contains info on all source code encountered
+        self._PC = 0
+        self._cur_file = None
+        self._machine_code = []                     # Have a mega buffer that stores all output instructions
+        self._output_file_path = None
 
-    def assemble(self, source_file):
+    def assemble(self, source_file, output_file=None):
+        if self._output_file_path == None:
+            if output_file == None:
+                try:
+                    self._output_file_path = f"{os.path.splitext(source_file)[0]}.out"
+                except Exception:
+                    print(f"ERROR: Invalid input file {source_file}")
+                    sys.exit(-1)
+            else:
+                # TODO - Output path validation
+                self._output_file_path = output_file
+
         # Parse (2 passes)
         self._parse_source_file(source_file)   
 
@@ -23,15 +40,21 @@ class Assembler:
         self._pass_two()
         
     def _error(self, line_num, msg, error_code):
-        print(f"{self.source["name"]}:{line_num}: ERROR: {msg}")
+        print(f"{self._cur_file}:{line_num}: ERROR: {msg}")
         sys.exit(error_code)
 
     def _parse_source_file(self, source_file):
         try:
             with open(source_file, 'r') as file:
-                self.source = {}
-                self.source["name"] = os.path.basename(source_file)
-                self.source["instructions"] = []
+                file_name = os.path.basename(source_file)
+                if file_name in self._source:
+                    print(f"ERROR: {file_name} already parsed?!")
+                    sys.exit(-1)
+                
+                self._source[file_name] = {}
+                self._source[file_name]["instructions"] = []
+                self._source[file_name]["parent_file"] = self._cur_file     # Top-level file has no parent
+                self._cur_file = file_name
 
                 # Clean the lines
                 for i, line in enumerate(file):
@@ -45,7 +68,7 @@ class Assembler:
                         instruction = {}
                         instruction["line_num"] = i     # For error msg
                         instruction["tokens"] = [el for el in line.split(' ') if el != '']
-                        self.source["instructions"].append(instruction)
+                        self._source[self._cur_file]["instructions"].append(instruction)
 
         except IOError as e:
             print(f"ERROR: Unable to open source file '{source_file}'")
@@ -53,17 +76,18 @@ class Assembler:
 
 
     def _pass_one(self):
-        # First pass collect all the labels and their line num
-        PC = 0
 
-        for ins in self.source["instructions"]:
+        for ins in self._source[self._cur_file]["instructions"]:
             first_word = ins["tokens"][0]
 
             if first_word.endswith(':'):        # Label
                 label_name = first_word[:-1]
 
                 if first_word[0].isalpha() or first_word.startswith('_'):
-                    self._labels[label_name] = PC
+                    if not label_name in self._labels:
+                        self._labels[label_name] = self._PC
+                    else:
+                        self._error(ins["line_num"], f"{label_name} already defined.", -1)
                 else:
                     self._error(ins["line_num"], "Invalid label.", -1) 
 
@@ -77,7 +101,7 @@ class Assembler:
                     case ".THUMB":
                         self._INS_SET_MODE = InstructionMode.THUMB
                     case ".CODE":
-                        if ins["tokens"] != 2:
+                        if len(ins["tokens"]) != 2:
                             self._error(ins["line_num"], "Expected instruction set 32 or 16 after .code.", -1) 
 
                         code = ins["tokens"][1]
@@ -87,9 +111,17 @@ class Assembler:
                             self._INS_SET_MODE = InstructionMode.ARM
                         else:
                             self._error(ins["line_num"], f"Invalid instruction set {code}. Expected 16 or 32.", -1)
-                    case ".INCLUDE":
-                        # .include {file}
-                        pass
+
+                    case ".INCLUDE":    # .include {file}
+                        if len(ins["tokens"]) != 2:
+                            self._error(ins["line_num"], "'.include' directive requires a filename.", -1)
+                        
+                        # We need to recursively assemble the files
+                        source_file = ins["tokens"][1]
+                        self.assemble(source_file)
+                        self._cur_file = self._source[self._cur_file]["parent_file"]
+
+
                     case ".ALIGN" | ".BALIGN": 
                         # .align {alignment} {, fill}, {, max}
                         pass
@@ -227,12 +259,33 @@ class Assembler:
 
 
 def main():
-    if (len(sys.argv) != 2):
-        print("ERROR: Usage 'python assembler.py <source_file>'")
-        sys.exit(1)
 
-    source_file = sys.argv[1]
-    Assembler().assemble(source_file)
+    parser = argparse.ArgumentParser(
+        description="A simple ARMv7 assembler.",
+        usage="%(prog)s <source_file> [-o output_file]"
+    )
+
+    parser.add_argument(
+        "source_file",
+        type=str,
+        description="Input assembly file to be assembled."
+    )
+
+    parser.add_argument(
+        "--output-file", "-o",
+        required=False,
+        dest="output_file",
+        help='Specify the name of the output object file. Defaults to <source_file>.out',
+        default=None,
+        type=str
+    )
+
+    args = parser.parse_args()
+
+    Assembler().assemble(
+        source_file=args.source_file,
+        output_file=args.output_file
+    )
 
 
 if __name__ == "__main__":
