@@ -79,12 +79,11 @@ class Assembler:
                             line = line[:line.index("//")]      # Remove comments
 
                         instruction = {}
-                        instruction["line_num"] = i     # For error msg
-                        instruction["tokens"] = [ el for el in re.split('\s|,', line) if el != "" ] 
+                        instruction["line_num"] = i+1     # For error msg
+                        instruction["tokens"] = [ el for el in re.split(r'\s|,', line) if el != "" ] 
 
                         self._source[self._cur_file]["instructions"].append(instruction)
 
-                print(json.dumps(self._source, indent=4))
 
         except IOError as e:
             print(f"ERROR: Unable to open source file '{source_file}'")
@@ -140,7 +139,7 @@ class Assembler:
                     case ".INCLUDE":    
                         # .include {file}
                         if len(tokens) != 2:
-                            self._error(ins["line_num"], "'.include' directive requires a filename.", -1)
+                            self._error(ins["line_num"], "Syntax: '.INCLUDE {filename}'.", -1)
                         
                         # We need to recursively assemble the files
                         source_file = tokens[token_index+1]
@@ -149,10 +148,20 @@ class Assembler:
 
                     case ".ALIGN" | ".BALIGN":  # MVP
                         # .align {expression,{offset-expression}}
-                        if len(tokens) == 1:
-                            pass
-                        if len(tokens) == 1:
-                            pass
+                        # I will ignore offset expression
+                        if len(tokens) > 2:
+                            self._error(ins["line_num"], "Syntax: '.ALIGN {expression}'", -1)
+
+                        alignment = 4           # Default 2**2
+                        if len(tokens) == 2:
+                            power = tokens[token_index+1]
+                            try:
+                                alignment = 2**int(power)
+                            except ValueError:
+                                self._error(ins["line_num"], f"Expected integer, got {power}", -1)
+
+                        padding = (alignment - (self._PC % alignment)) % alignment
+                        self._PC += padding
                         
                     case ".TEXT":   # N2H
                         pass
@@ -172,7 +181,13 @@ class Assembler:
 
                     # === Constant Definition Directives ===
                     case ".BYTE":   # MVP
-                        pass
+                        if len(tokens) == 1:
+                            self._error(ins["line_num"], f"Expected value(s) after .BYTE directive.", -1)
+                        for token in tokens[1:]:
+                            if token.startswith("0x") and len(token[2:]) != 2:
+                                self._error(ins["line_num"], f"Expected byte-sized value, got {token}.", -1)
+                            self._PC += 1
+
                     case ".WORD" | ".INT" | ".LONG":    # MVP
                         pass
 
