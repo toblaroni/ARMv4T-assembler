@@ -201,13 +201,16 @@ class Assembler:
                     case ".INCLUDE":    
                         continue    # Handled in first pass
 
-                    case ".ALIGN" | ".BALIGN":  # MVP
+                    case ".ALIGN" | ".BALIGN": 
                         if len(tokens) > 2:
                             self._error(ins["line_num"], "Syntax: '.ALIGN {expression}'", -1)
+
                         padding = self._calc_padding(tokens, ins["line_num"])
 
-                        # Add NOP*padding instructions
-
+                        if padding != 0:
+                            self._output_buffer.extend(bytearray.fromhex('00'*padding))
+                            self._PC += padding
+                            self._verbose_print(f"Alignment: Padded {padding} bytes (PC now at 0x{self._PC:X})")
                         
                     case ".TEXT":
                         continue
