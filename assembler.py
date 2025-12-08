@@ -5,6 +5,14 @@ import argparse
 from pathlib import Path
 import json
 import re
+from enum import Enum
+
+
+class TokenType(Enum):
+    Instruction = 0
+    Directive = 1
+    Label = 2
+
 
 class Assembler:
     def __init__(self, verbose=False):
@@ -73,12 +81,21 @@ class Assembler:
                         if ("//" in line):
                             line = line[:line.index("//")]      # Remove comments
 
-                        instruction = {}
-                        instruction["line_num"] = i+1     # For error msg
-                        instruction["tokens"] = [ el for el in re.split(r'\s|,', line) if el != "" ] 
+                        tokens = [ el for el in re.split(r'\s|,', line) if el != "" ] 
 
-                        self._source[self._cur_file]["instructions"].append(instruction)
+                        for token in tokens:
+                            token = {}
+                            token["value"] = token
 
+                            if self._token_is_label(token):
+                                token["type"] = TokenType.Label
+                            elif self._token_is_directive(token):
+                                token["type"] = TokenType.Directive
+                            else:
+                                token["type"] = TokenType.Instruction
+                            
+                            token["line_num"] = i+1     # For error msg
+                            self._source[self._cur_file]["tokens"].append(token)
 
         except IOError as e:
             print(f"ERROR: Unable to open source file '{source_file}'")
@@ -212,11 +229,11 @@ class Assembler:
                             self._PC += padding
                             self._verbose_print(f"Alignment: Padded {padding} bytes (PC now at 0x{self._PC:X})")
                         
+                    # ** Ignoring these for now
                     case ".TEXT":
                         continue
                     case ".DATA":
                         continue
-
                     # === Symbol Directives ===
                     case ".EQU" | ".SET":
                         continue
@@ -224,10 +241,9 @@ class Assembler:
                         continue
 
                     # === Constant Definition Directives ===
-                    case ".BYTE":   # MVP
+                    case ".BYTE":
                         for token in tokens[1:]:
-                            # Assume they're the right size for now...
-                            self._PC += 1
+
 
                     case ".WORD" | ".INT" | ".LONG":    # MVP
                         for token in tokens[1:]:
@@ -237,10 +253,8 @@ class Assembler:
                     case _:
                         self._error(ins["line_num"], f"This directive doesn't exist or hasn't been implemented yet: {directive}", -1)
 
-                
 
 def main():
-
     parser = argparse.ArgumentParser(
         description="A simple ARMv7 assembler.",
         usage="%(prog)s <source_file> [-o output_file]"
