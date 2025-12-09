@@ -4,15 +4,19 @@ import sys
 import argparse
 from pathlib import Path
 import json
-import re
 from enum import Enum
-
 
 class TokenType(Enum):
     Instruction = 0
     Directive = 1
     Label = 2
 
+class Token:
+    def __init__(self, type, value, line_num, args=None):
+        self.type = type
+        self.value = value
+        self.line_num = line_num
+        self.args = args
 
 class Assembler:
     def __init__(self, verbose=False):
@@ -81,22 +85,22 @@ class Assembler:
                         if ("//" in line):
                             line = line[:line.index("//")]      # Remove comments
 
-                        tokens = [ el for el in re.split(r'\s|,', line) if el != "" ] 
+                        # Tokeniser
+                        tokens = [ el for el in line.split(" ") if el != "" ]   
 
-                        for token in tokens:
-                            token = {}
-                            token["value"] = token
+                        print(tokens)
 
-                            if self._token_is_label(token):
-                                token["type"] = TokenType.Label
-                            elif self._token_is_directive(token):
-                                token["type"] = TokenType.Directive
-                            else:
-                                token["type"] = TokenType.Instruction
-                            
-                            token["line_num"] = i+1     # For error msg
+                        # Handle <label> -> command
+                        """
+                        f_token = tokens.pop(0)
+
+                        if self._token_is_label(tokens[0]):
+                            token = Token(
+                                type=TokenType.Label,
+                                value=tokens[0]
+                            )
                             self._source[self._cur_file]["tokens"].append(token)
-
+                        """
         except IOError as e:
             print(f"ERROR: Unable to open source file '{source_file}'")
             sys.exit(1)
@@ -123,27 +127,19 @@ class Assembler:
     def _pass_one(self):
         self._verbose_print(f"=== Starting first pass for {self._cur_file} ===")
 
-        for ins in self._source[self._cur_file]["instructions"]:
-            self._verbose_print(f"Parsing line {ins["line_num"]}: {ins["tokens"]}")
-            tokens = ins["tokens"]
-            token_index = 0
-
-            if self._token_is_label(tokens[0]):         # Label
-                label_name = tokens[0][:-1]     # Remove colon
+        for token in self._source[self._cur_file]["tokens"]:
+            if token.type == TokenType.Label:
+                label_name = token.value[:-1]
                 if not label_name in self._labels:
                     self._labels[label_name] = self._PC
                     token_index = 1
                 else:
-                    self._error(ins["line_num"], f"{label_name} already defined.", -1)
-
-            if token_index == len(tokens):  # Just a label on its own line
-                continue
+                    self._error(token.line_num, f"Symbol '{label_name}' already defined.", -1)
 
             # === Handle Directives ===
-            elif self._token_is_directive(tokens[token_index]):
-                directive = tokens[token_index].upper()
+            elif token.type == TokenType.Directive:
+                directive = token.value.upper()
                 self._verbose_print(f"Handling directive: {directive}")
-
                 match directive:
                     # === CONTROL DIRECTIVES ===
                     case ".INCLUDE":    
@@ -242,8 +238,7 @@ class Assembler:
 
                     # === Constant Definition Directives ===
                     case ".BYTE":
-                        for token in tokens[1:]:
-
+                        continue
 
                     case ".WORD" | ".INT" | ".LONG":    # MVP
                         for token in tokens[1:]:
